@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   ArrowRight, Award, BarChart3, CalendarDays, ChevronDown, CircleHelp,
-  MapPin, Medal, Sparkles, Target, TrendingUp, Trophy, UserRound, Users,
+  MapPin, Medal, Sparkles, TrendingUp, Trophy, UserRound, Users,
 } from 'lucide-react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, PolarAngleAxis, PolarGrid,
@@ -12,7 +12,7 @@ import { dataset } from './data/competitionData'
 import { APPARATUS, APPARATUS_LABELS } from './data/types'
 import {
   getCompetitionSnapshot, getCompetitionSummaries, getGymnastProgress,
-  getMostImproved, getSeasonLeaderboards, getTeamProgress, type Insight,
+  getMostImproved, getSeasonLeaderboards, getTeamProgress,
   type SeasonGymnastStanding,
 } from './lib/analytics'
 
@@ -32,21 +32,6 @@ const rankWithinRegion = (gymnasts: SeasonGymnastStanding[]) =>
   [...gymnasts]
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
     .map((gymnast, index) => ({ ...gymnast, rank: index + 1 }))
-
-const InsightCard = ({ insight }: { insight: Insight }) => (
-  <article className={`insight-card ${insight.tone}`}>
-    <div className="insight-icon">
-      {insight.tone === 'coral' ? <Target /> : insight.tone === 'teal' ? <Sparkles /> : <TrendingUp />}
-    </div>
-    <p className="eyebrow">{insight.eyebrow}</p>
-    <h3>{insight.title}</h3>
-    <p className="insight-copy">{insight.body}</p>
-    <details>
-      <summary>See the numbers <ChevronDown size={14} /></summary>
-      <p>{insight.evidence}</p>
-    </details>
-  </article>
-)
 
 function App() {
   const [view, setView] = useState<View>('home')
@@ -197,6 +182,46 @@ function App() {
               </div>
             </section>
 
+            <section className="section-block home-competitions">
+              <div className="section-heading">
+                <div>
+                  <p className="kicker">Browse the season</p>
+                  <h2>All competitions</h2>
+                </div>
+                <span className="method-link"><CircleHelp size={15} /> Open a meet to see the full story</span>
+              </div>
+              <div className="competition-list">
+                {competitionSummaries.map(({ competition: item, gymnastCount, teamCount, topGymnast }) => (
+                  <button
+                    className="competition-card"
+                    onClick={() => openCompetition(item.id)}
+                    key={item.id}
+                  >
+                    <div className="competition-card-main">
+                      <p className="eyebrow">{item.category} · {item.level}</p>
+                      <h2>{item.name}</h2>
+                      <div className="competition-card-meta">
+                        <span><CalendarDays size={14} />{new Date(item.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                        <span><MapPin size={14} />{item.location}</span>
+                      </div>
+                    </div>
+                    <div className="competition-card-stats">
+                      <div><strong>{gymnastCount}</strong><span>gymnasts</span></div>
+                      <div><strong>{teamCount}</strong><span>teams</span></div>
+                      {topGymnast && (
+                        <div className="competition-card-leader">
+                          <span>All-around lead</span>
+                          <strong>{topGymnast.name}</strong>
+                          <small>{topGymnast.total.toFixed(3)}</small>
+                        </div>
+                      )}
+                    </div>
+                    <span className="competition-card-action">Open <ArrowRight size={16} /></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
             <section className="section-block home-leaderboards">
               <div className="split-section home-season-leaderboards">
                 <div className="panel">
@@ -277,46 +302,6 @@ function App() {
                 </div>
               </div>
             </section>
-
-            <section className="section-block home-competitions">
-              <div className="section-heading">
-                <div>
-                  <p className="kicker">Browse the season</p>
-                  <h2>All competitions</h2>
-                </div>
-                <span className="method-link"><CircleHelp size={15} /> Open a meet to see the full story</span>
-              </div>
-              <div className="competition-list">
-                {competitionSummaries.map(({ competition: item, gymnastCount, teamCount, topGymnast }) => (
-                  <button
-                    className="competition-card"
-                    onClick={() => openCompetition(item.id)}
-                    key={item.id}
-                  >
-                    <div className="competition-card-main">
-                      <p className="eyebrow">{item.category} · {item.level}</p>
-                      <h2>{item.name}</h2>
-                      <div className="competition-card-meta">
-                        <span><CalendarDays size={14} />{new Date(item.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                        <span><MapPin size={14} />{item.location}</span>
-                      </div>
-                    </div>
-                    <div className="competition-card-stats">
-                      <div><strong>{gymnastCount}</strong><span>gymnasts</span></div>
-                      <div><strong>{teamCount}</strong><span>teams</span></div>
-                      {topGymnast && (
-                        <div className="competition-card-leader">
-                          <span>All-around lead</span>
-                          <strong>{topGymnast.name}</strong>
-                          <small>{topGymnast.total.toFixed(3)}</small>
-                        </div>
-                      )}
-                    </div>
-                    <span className="competition-card-action">Open <ArrowRight size={16} /></span>
-                  </button>
-                ))}
-              </div>
-            </section>
           </>
         )}
 
@@ -381,14 +366,6 @@ function App() {
                   ))}
                 </div>
               </div>
-            </section>
-
-            <section className="section-block">
-              <div className="section-heading">
-                <div><p className="kicker">What happened</p><h2>Stories behind the scores</h2></div>
-                <span className="method-link"><CircleHelp size={15} /> Every insight shows its working</span>
-              </div>
-              <div className="insights-grid">{snapshot.insights.map((insight) => <InsightCard insight={insight} key={insight.id} />)}</div>
             </section>
 
             <section className="split-section section-block">
