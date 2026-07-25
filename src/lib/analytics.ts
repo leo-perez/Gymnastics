@@ -560,6 +560,7 @@ export const getSeasonLeaderboards = (dataset: CompetitionDataset) => {
 export const getGymnastProgress = (
   dataset: CompetitionDataset,
   gymnast: Gymnast,
+  apparatus: 'all' | Apparatus = 'all',
 ) =>
   [...dataset.competitions]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -571,12 +572,24 @@ export const getGymnastProgress = (
       const byApparatus = Object.fromEntries(
         scores.map((score) => [score.apparatus, score.score]),
       ) as Partial<Record<Apparatus, number>>
-      if (!hasFullAllAround(byApparatus)) return null
+
+      if (apparatus === 'all') {
+        if (!hasFullAllAround(byApparatus)) return null
+        return {
+          competition: competition.name,
+          date: competition.date,
+          shortName: formatAxisDate(competition.date),
+          total: round(APPARATUS.reduce((sum, item) => sum + byApparatus[item], 0)),
+        }
+      }
+
+      const score = byApparatus[apparatus]
+      if (typeof score !== 'number') return null
       return {
         competition: competition.name,
         date: competition.date,
         shortName: formatAxisDate(competition.date),
-        total: round(APPARATUS.reduce((sum, item) => sum + byApparatus[item], 0)),
+        total: round(score),
       }
     })
     .filter((result): result is NonNullable<typeof result> => result != null)

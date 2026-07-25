@@ -9,7 +9,7 @@ import {
 } from 'recharts'
 import './App.css'
 import { dataset } from './data/competitionData'
-import { APPARATUS, APPARATUS_LABELS } from './data/types'
+import { APPARATUS, APPARATUS_LABELS, type Apparatus } from './data/types'
 import {
   getCompetitionSnapshot, getCompetitionSummaries, getGymnastProgress,
   getMostImproved, getSeasonLeaderboards, getTeamProgress,
@@ -44,6 +44,7 @@ function App() {
   const [regionFilter, setRegionFilter] = useState(
     seasonLeaderboards.regions.includes(DEFAULT_REGION) ? DEFAULT_REGION : ALL_REGIONS,
   )
+  const [progressApparatus, setProgressApparatus] = useState<'all' | Apparatus>('all')
   const gymnastLeaderboardGroups = useMemo(() => {
     const filtered =
       regionFilter === ALL_REGIONS
@@ -620,14 +621,32 @@ function App() {
                 </div>
                 <div className="detail-grid lower-grid">
                   <article className="panel chart-panel">
-                    <div className="panel-heading"><div><p className="kicker">Across competitions</p><h2>Progress over time</h2></div></div>
+                    <div className="panel-heading">
+                      <div><p className="kicker">Across competitions</p><h2>Progress over time</h2></div>
+                      <label className="region-filter progress-apparatus-filter">
+                        <select
+                          value={progressApparatus}
+                          onChange={(event) => setProgressApparatus(event.target.value as 'all' | Apparatus)}
+                          aria-label="Filter progress by apparatus"
+                        >
+                          <option value="all">All</option>
+                          {APPARATUS.map((item) => (
+                            <option value={item} key={item}>{APPARATUS_LABELS[item]}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} />
+                      </label>
+                    </div>
                     <ResponsiveContainer width="100%" height={220}>
-                      <LineChart data={gymnastRecord ? getGymnastProgress(dataset, gymnastRecord) : []} margin={{ top: 16, right: 20, left: -12, bottom: 0 }}>
+                      <LineChart data={gymnastRecord ? getGymnastProgress(dataset, gymnastRecord, progressApparatus) : []} margin={{ top: 16, right: 20, left: -12, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8e6e1" />
                         <XAxis dataKey="shortName" axisLine={false} tickLine={false} tick={{ fill: '#716f69', fontSize: 12 }} />
                         <YAxis domain={['dataMin - 1', 'dataMax + 1']} axisLine={false} tickLine={false} tick={{ fill: '#9a9892', fontSize: 11 }} />
                         <Tooltip
-                          formatter={(value) => [Number(value).toFixed(3), 'All-around']}
+                          formatter={(value) => [
+                            Number(value).toFixed(3),
+                            progressApparatus === 'all' ? 'All-around' : APPARATUS_LABELS[progressApparatus],
+                          ]}
                           labelFormatter={(_label, payload) => {
                             const point = payload?.[0]?.payload
                             if (!point) return ''

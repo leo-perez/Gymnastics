@@ -157,6 +157,7 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
   appearance: none; border: 0; outline: 0; background: transparent;
   color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; max-width: 180px;
 }
+.panel-heading .progress-apparatus-filter { margin-top: 0; flex-shrink: 0; }
 .leaderboard-method { margin: 10px 0 0; }
 .region-leaderboard { display: flex; flex-direction: column; gap: 14px; }
 .region-group + .region-group { padding-top: 6px; border-top: 1px solid var(--line); }
