@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowRight, Award, BarChart3, CalendarDays, ChevronDown, CircleHelp,
-  MapPin, Medal, Sparkles, TrendingUp, Trophy, UserRound, Users,
+  ArrowRight, Award, BarChart3, CalendarDays, ChevronDown, ChevronLeft, CircleHelp,
+  MapPin, Medal, Sparkles, TrendingUp, Trophy, UserRound, Users, X,
 } from 'lucide-react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, PolarAngleAxis, PolarGrid,
@@ -27,11 +27,31 @@ const VIEW_LABELS: Record<View, string> = {
 
 const DEFAULT_REGION = 'Auckland'
 const ALL_REGIONS = 'all'
+const MOBILE_BREAKPOINT = 900
+const MOBILE_LEADERBOARD_PREVIEW = 5
+
+type ListOverlay = 'teams' | 'gymnasts' | null
 
 const rankWithinRegion = (gymnasts: SeasonGymnastStanding[]) =>
   [...gymnasts]
     .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
     .map((gymnast, index) => ({ ...gymnast, rank: index + 1 }))
+
+const useIsMobile = (breakpoint = MOBILE_BREAKPOINT) => {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches,
+  )
+
+  useEffect(() => {
+    const media = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const onChange = () => setIsMobile(media.matches)
+    onChange()
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [breakpoint])
+
+  return isMobile
+}
 
 function App() {
   const [view, setView] = useState<View>('home')
@@ -45,6 +65,10 @@ function App() {
     seasonLeaderboards.regions.includes(DEFAULT_REGION) ? DEFAULT_REGION : ALL_REGIONS,
   )
   const [progressApparatus, setProgressApparatus] = useState<'all' | Apparatus>('all')
+  const [listOverlay, setListOverlay] = useState<ListOverlay>(null)
+  const [compPickerOpen, setCompPickerOpen] = useState(false)
+  const compPickerRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
   const gymnastLeaderboardGroups = useMemo(() => {
     const filtered =
       regionFilter === ALL_REGIONS
@@ -65,6 +89,25 @@ function App() {
       }))
       .filter((group) => group.gymnasts.length > 0)
   }, [regionFilter, seasonLeaderboards])
+  const previewTeamStandings = isMobile
+    ? seasonLeaderboards.teams.slice(0, MOBILE_LEADERBOARD_PREVIEW)
+    : seasonLeaderboards.teams
+  const previewGymnastGroups = useMemo(() => {
+    if (!isMobile) return gymnastLeaderboardGroups
+    let remaining = MOBILE_LEADERBOARD_PREVIEW
+    const groups = []
+    for (const group of gymnastLeaderboardGroups) {
+      if (remaining <= 0) break
+      const gymnasts = group.gymnasts.slice(0, remaining)
+      remaining -= gymnasts.length
+      groups.push({ ...group, gymnasts })
+    }
+    return groups
+  }, [gymnastLeaderboardGroups, isMobile])
+  const gymnastStandingCount = useMemo(
+    () => gymnastLeaderboardGroups.reduce((sum, group) => sum + group.gymnasts.length, 0),
+    [gymnastLeaderboardGroups],
+  )
   const competition = dataset.competitions.find((item) => item.id === competitionId)!
   const showAllTeams = teamId === 'all'
   const showAllGymnasts = gymnastId === 'all'
@@ -110,17 +153,55 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   const openTeam = (id: string, fromCompetitionId = competitionId) => {
+    setListOverlay(null)
     setCompetitionId(fromCompetitionId)
     setTeamId(id)
     setView('teams')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   const openGymnast = (id: string, fromCompetitionId = competitionId) => {
+    setListOverlay(null)
     setCompetitionId(fromCompetitionId)
     setGymnastId(id)
     setView('gymnasts')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    if (!listOverlay) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setListOverlay(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [listOverlay])
+
+  useEffect(() => {
+    if (!compPickerOpen) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!compPickerRef.current?.contains(event.target as Node)) {
+        setCompPickerOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCompPickerOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [compPickerOpen])
+
+  useEffect(() => {
+    setCompPickerOpen(false)
+  }, [view, competitionId])
 
   return (
     <div className="app-shell">
@@ -129,17 +210,63 @@ function App() {
           <span className="brand-mark"><TrendingUp size={20} /></span>
           <span>Score<span>Story</span></span>
         </button>
+      </header>
+
+      <main>
         {view !== 'home' && (
-          <>
-            <label className="competition-select">
-              <CalendarDays size={16} />
-              <select value={competitionId} onChange={(event) => setCompetitionId(event.target.value)}>
-                {dataset.competitions.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
-              </select>
-              <ChevronDown size={14} />
-            </label>
-            <nav aria-label="Main navigation">
-              {(['home', 'overview', 'teams', 'gymnasts'] as View[]).map((item) => (
+          <section className="competition-chrome">
+            <button
+              type="button"
+              className="text-button back-to-competitions"
+              onClick={() => setView('home')}
+            >
+              <ChevronLeft size={15} /> All Competitions
+            </button>
+            <div className="overview-title-row">
+              <h1>{competition.name}</h1>
+              <div className="comp-change" ref={compPickerRef}>
+                <button
+                  type="button"
+                  className="text-button comp-change-trigger"
+                  aria-expanded={compPickerOpen}
+                  aria-haspopup="listbox"
+                  onClick={() => setCompPickerOpen((open) => !open)}
+                >
+                  Change <ChevronDown size={14} />
+                </button>
+                {compPickerOpen && (
+                  <ul className="comp-change-menu" role="listbox" aria-label="Competitions">
+                    {dataset.competitions.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={item.id === competitionId}
+                          className={item.id === competitionId ? 'active' : ''}
+                          onClick={() => {
+                            setCompetitionId(item.id)
+                            setTeamId('all')
+                            setGymnastId('all')
+                            setCompPickerOpen(false)
+                          }}
+                        >
+                          <span>{item.name}</span>
+                          <small>
+                            {new Date(item.date).toLocaleDateString('en-NZ', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <nav className="competition-tabs" aria-label="Main navigation">
+              {(['overview', 'teams', 'gymnasts'] as View[]).map((item) => (
                 <button
                   className={view === item ? 'active' : ''}
                   onClick={() => {
@@ -153,11 +280,8 @@ function App() {
                 </button>
               ))}
             </nav>
-          </>
+          </section>
         )}
-      </header>
-
-      <main>
         {view === 'home' && (
           <>
             <section className="hero-section">
@@ -233,7 +357,7 @@ function App() {
                     </button>
                   </div>
                   <div className="leaderboard">
-                    {seasonLeaderboards.teams.map((team) => (
+                    {previewTeamStandings.map((team) => (
                       <button className="leader-row" onClick={() => openTeam(team.resultId, team.competitionId)} key={team.id}>
                         <span className={`rank rank-${team.rank}`}>{team.rank <= 3 ? <Medal size={17} /> : team.rank}</span>
                         <span className="team-dot" style={{ background: team.color }} />
@@ -242,6 +366,11 @@ function App() {
                       </button>
                     ))}
                   </div>
+                  {isMobile && seasonLeaderboards.teams.length > MOBILE_LEADERBOARD_PREVIEW && (
+                    <button className="view-all-button" onClick={() => setListOverlay('teams')}>
+                      View all <ArrowRight size={16} />
+                    </button>
+                  )}
                 </div>
                 <div className="panel">
                   <div className="panel-heading">
@@ -269,10 +398,10 @@ function App() {
                     Ranked by the sum of each gymnast’s top 3 all-around scores this season.
                   </p>
                   <div className="leaderboard region-leaderboard">
-                    {gymnastLeaderboardGroups.length === 0 ? (
+                    {previewGymnastGroups.length === 0 ? (
                       <p className="leaderboard-empty">No gymnasts in this region yet.</p>
                     ) : (
-                      gymnastLeaderboardGroups.map((group) => (
+                      previewGymnastGroups.map((group) => (
                         <div className="region-group" key={group.region}>
                           <p className="region-group-label">{group.region}</p>
                           {group.gymnasts.map((gymnast) => (
@@ -300,6 +429,11 @@ function App() {
                       ))
                     )}
                   </div>
+                  {isMobile && gymnastStandingCount > MOBILE_LEADERBOARD_PREVIEW && (
+                    <button className="view-all-button" onClick={() => setListOverlay('gymnasts')}>
+                      View all <ArrowRight size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             </section>
@@ -308,63 +442,53 @@ function App() {
 
         {view === 'overview' && (
           <>
-            <section className="hero-section overview-hero">
-              <div>
-                <p className="kicker">Competition overview</p>
-                <h1>The scores tell a <em>story.</em></h1>
-                <p className="hero-copy">
-                  See who shone, where teams found their edge, and the moments that made {competition.name} worth watching.
-                </p>
-                <div className="competition-meta">
-                  <span><CalendarDays size={15} />{new Date(competition.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                  <span>{competition.location}</span>
-                  <span>{competition.category} · {competition.level}</span>
-                </div>
-              </div>
-              <div className="hero-orbit" aria-hidden="true">
-                <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-                <div className="hero-score"><strong>{snapshot.gymnasts[0].total.toFixed(3)}</strong><span>winning<br />all-around</span></div>
-                <Sparkles className="spark spark-one" /><Sparkles className="spark spark-two" />
-              </div>
-            </section>
+            <div className="competition-meta overview-meta">
+              <span><CalendarDays size={15} />{new Date(competition.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              <span><MapPin size={15} />{competition.location}</span>
+              <span><UserRound size={15} />{competition.category} · {competition.level}</span>
+            </div>
 
             <section className="champion-grid">
               <div className="champion-column">
-                <button className="champion-card team-champion" onClick={() => openTeam(snapshot.teams[0].id)}>
-                  <div className="champion-top"><span className="champion-icon"><Trophy /></span><span className="eyebrow">Top team</span><ArrowRight /></div>
-                  <div className="champion-body">
-                    <div><p className="place">1st place</p><h2>{snapshot.teams[0].name}</h2><p>Strongest on {APPARATUS_LABELS[snapshot.teams[0].strongest]} · {snapshot.teams[0].reliance}% top-athlete reliance</p></div>
-                    <strong className="big-score">{snapshot.teams[0].total.toFixed(3)}</strong>
+                <div className="champion-stack">
+                  <button className="champion-card team-champion" onClick={() => openTeam(snapshot.teams[0].id)}>
+                    <div className="champion-top"><span className="champion-icon"><Trophy /></span><span className="eyebrow">Top team</span><ArrowRight /></div>
+                    <div className="champion-body">
+                      <div><p className="place">1st place</p><h2>{snapshot.teams[0].name}</h2><p>Strongest on {APPARATUS_LABELS[snapshot.teams[0].strongest]} · {snapshot.teams[0].reliance}% top-athlete reliance</p></div>
+                      <strong className="big-score">{snapshot.teams[0].total.toFixed(3)}</strong>
+                    </div>
+                  </button>
+                  <div className="podium-list">
+                    {snapshot.teams.slice(1, 3).map((team) => (
+                      <button className="podium-row" onClick={() => openTeam(team.id)} key={team.id}>
+                        <span className={`rank rank-${team.rank}`}>{team.rank === 2 || team.rank === 3 ? <Medal size={15} /> : team.rank}</span>
+                        <span className="team-dot" style={{ background: team.color }} />
+                        <span className="leader-name"><strong>{team.name}</strong><small>Best on {APPARATUS_LABELS[team.strongest]}</small></span>
+                        <span className="leader-score">{team.total.toFixed(3)}</span>
+                      </button>
+                    ))}
                   </div>
-                </button>
-                <div className="podium-list">
-                  {snapshot.teams.slice(1, 3).map((team) => (
-                    <button className="podium-row" onClick={() => openTeam(team.id)} key={team.id}>
-                      <span className={`rank rank-${team.rank}`}>{team.rank === 2 || team.rank === 3 ? <Medal size={15} /> : team.rank}</span>
-                      <span className="team-dot" style={{ background: team.color }} />
-                      <span className="leader-name"><strong>{team.name}</strong><small>Best on {APPARATUS_LABELS[team.strongest]}</small></span>
-                      <span className="leader-score">{team.total.toFixed(3)}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
               <div className="champion-column">
-                <button className="champion-card gymnast-champion" onClick={() => openGymnast(snapshot.gymnasts[0].id)}>
-                  <div className="champion-top"><span className="champion-icon"><Medal /></span><span className="eyebrow">Top gymnast</span><ArrowRight /></div>
-                  <div className="champion-body">
-                    <div><p className="place">All-around champion</p><h2>{snapshot.gymnasts[0].name}</h2><p>{snapshot.gymnasts[0].teamName} · {snapshot.gymnasts[0].average.toFixed(3)} average</p></div>
-                    <strong className="big-score">{snapshot.gymnasts[0].total.toFixed(3)}</strong>
+                <div className="champion-stack">
+                  <button className="champion-card gymnast-champion" onClick={() => openGymnast(snapshot.gymnasts[0].id)}>
+                    <div className="champion-top"><span className="champion-icon"><Medal /></span><span className="eyebrow">Top gymnast</span><ArrowRight /></div>
+                    <div className="champion-body">
+                      <div><p className="place">All-around champion</p><h2>{snapshot.gymnasts[0].name}</h2><p>{snapshot.gymnasts[0].teamName} · {snapshot.gymnasts[0].average.toFixed(3)} average</p></div>
+                      <strong className="big-score">{snapshot.gymnasts[0].total.toFixed(3)}</strong>
+                    </div>
+                  </button>
+                  <div className="podium-list">
+                    {snapshot.gymnasts.slice(1, 6).map((gymnast) => (
+                      <button className="podium-row" onClick={() => openGymnast(gymnast.id)} key={gymnast.id}>
+                        <span className={`rank rank-${gymnast.rank}`}>{gymnast.rank === 2 || gymnast.rank === 3 ? <Medal size={15} /> : gymnast.rank}</span>
+                        <span className="team-dot" style={{ background: clubColor(gymnast.teamId) }} />
+                        <span className="leader-name"><strong>{gymnast.name}</strong><small>{gymnast.teamName}</small></span>
+                        <span className="leader-score">{gymnast.total.toFixed(3)}</span>
+                      </button>
+                    ))}
                   </div>
-                </button>
-                <div className="podium-list">
-                  {snapshot.gymnasts.slice(1, 6).map((gymnast) => (
-                    <button className="podium-row" onClick={() => openGymnast(gymnast.id)} key={gymnast.id}>
-                      <span className={`rank rank-${gymnast.rank}`}>{gymnast.rank === 2 || gymnast.rank === 3 ? <Medal size={15} /> : gymnast.rank}</span>
-                      <span className="team-dot" style={{ background: clubColor(gymnast.teamId) }} />
-                      <span className="leader-name"><strong>{gymnast.name}</strong><small>{gymnast.teamName}</small></span>
-                      <span className="leader-score">{gymnast.total.toFixed(3)}</span>
-                    </button>
-                  ))}
                 </div>
               </div>
             </section>
@@ -672,6 +796,98 @@ function App() {
         <div className="brand"><span className="brand-mark"><TrendingUp size={18} /></span><span>Score<span>Story</span></span></div>
         <p>Clearer competition results, one story at a time.</p><p className="sample-label">Individual and team results from competition score sheets</p>
       </footer>
+
+      {listOverlay && (
+        <div
+          className="list-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="list-overlay-title"
+        >
+          <div className="list-overlay-header">
+            <div>
+              <p className="kicker">{listOverlay === 'teams' ? 'Team standings' : 'Gymnast'}</p>
+              <h2 id="list-overlay-title">Leaderboard</h2>
+            </div>
+            <button
+              className="list-overlay-close"
+              onClick={() => setListOverlay(null)}
+              aria-label="Close leaderboard"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="list-overlay-body">
+            {listOverlay === 'gymnasts' && (
+              <>
+                <label className="region-filter">
+                  <MapPin size={15} />
+                  <select
+                    value={regionFilter}
+                    onChange={(event) => setRegionFilter(event.target.value)}
+                    aria-label="Filter gymnast leaderboard by region"
+                  >
+                    <option value={ALL_REGIONS}>All regions</option>
+                    {seasonLeaderboards.regions.map((region) => (
+                      <option value={region} key={region}>{region}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} />
+                </label>
+                <p className="chart-note leaderboard-method">
+                  <CircleHelp size={14} />
+                  Ranked by the sum of each gymnast’s top 3 all-around scores this season.
+                </p>
+              </>
+            )}
+            {listOverlay === 'teams' ? (
+              <div className="leaderboard">
+                {seasonLeaderboards.teams.map((team) => (
+                  <button className="leader-row" onClick={() => openTeam(team.resultId, team.competitionId)} key={team.id}>
+                    <span className={`rank rank-${team.rank}`}>{team.rank <= 3 ? <Medal size={17} /> : team.rank}</span>
+                    <span className="team-dot" style={{ background: team.color }} />
+                    <span className="leader-name"><strong>{team.name}</strong><small>Best at {team.competitionName}</small></span>
+                    <span className="leader-score">{team.total.toFixed(3)}</span><ArrowRight size={16} />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="leaderboard region-leaderboard">
+                {gymnastLeaderboardGroups.length === 0 ? (
+                  <p className="leaderboard-empty">No gymnasts in this region yet.</p>
+                ) : (
+                  gymnastLeaderboardGroups.map((group) => (
+                    <div className="region-group" key={group.region}>
+                      <p className="region-group-label">{group.region}</p>
+                      {group.gymnasts.map((gymnast) => (
+                        <button
+                          className="leader-row"
+                          onClick={() => openGymnast(gymnast.id, gymnast.competitionId)}
+                          key={gymnast.id}
+                        >
+                          <span className={`rank rank-${gymnast.rank}`}>
+                            {gymnast.rank <= 3 ? <Medal size={17} /> : gymnast.rank}
+                          </span>
+                          <span className="team-dot" style={{ background: clubColor(gymnast.teamId) }} />
+                          <span className="leader-name">
+                            <strong>{gymnast.name}</strong>
+                            <small>
+                              {gymnast.teamName} · Top {gymnast.scoredMeets}{' '}
+                              {gymnast.scoredMeets === 1 ? 'meet' : 'meets'}
+                            </small>
+                          </span>
+                          <span className="leader-score">{gymnast.total.toFixed(3)}</span>
+                          <ArrowRight size={16} />
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
