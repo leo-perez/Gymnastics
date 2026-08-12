@@ -338,6 +338,12 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
 /* ---- Footer ------------------------------------------------------------- */
 footer { max-width: 1184px; padding: 30px 20px; margin: 0 20px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 16px; color: var(--muted); font-size: 11px; }
 footer p { margin: 0; } .sample-label { padding: 6px 9px; background: #ece9e1; border-radius: 6px; }
+.data-loading { display: grid; place-items: center; padding: 48px 20px; }
+.data-loading-card { text-align: center; max-width: 360px; display: grid; gap: 10px; justify-items: center; }
+.data-loading-card h1 { margin: 0; font-size: 28px; letter-spacing: -.03em; }
+.data-loading-card p { margin: 0; color: var(--muted); }
+.data-refresh { margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--violet); }
+.data-error { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #fde8e8; color: #9b1c1c; font-size: 13px; }
 
 /* ==========================================================================
    >= 640px  (large phones / small tablets)

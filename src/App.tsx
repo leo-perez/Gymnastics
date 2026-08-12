@@ -8,8 +8,9 @@ import {
   Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import './App.css'
-import { dataset } from './data/competitionData'
+import type { CompetitionDataset } from './data/types'
 import { APPARATUS, APPARATUS_LABELS, type Apparatus } from './data/types'
+import { useDataset } from './hooks/useDataset'
 import {
   getCompetitionSnapshot, getCompetitionSummaries, getGymnastProgress,
   getMostImproved, getSeasonLeaderboards, getTeamProgress,
@@ -53,12 +54,49 @@ const useIsMobile = (breakpoint = MOBILE_BREAKPOINT) => {
   return isMobile
 }
 
+type AppContentProps = {
+  dataset: CompetitionDataset
+  dataError: string | null
+  dataSource: 'google-sheets' | 'static'
+  lastUpdated: Date | null
+  onRefresh: () => void
+}
+
 function App() {
+  const { dataset, loading, error, source, lastUpdated, refresh } = useDataset()
+
+  if (loading) {
+    return (
+      <div className="app-shell data-loading">
+        <div className="data-loading-card">
+          <span className="brand-mark"><TrendingUp size={20} /></span>
+          <p className="eyebrow">ScoreStory</p>
+          <h1>Loading results…</h1>
+          <p>Fetching the latest scores from Google Sheets.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <AppContent
+      dataset={dataset}
+      dataError={error}
+      dataSource={source}
+      lastUpdated={lastUpdated}
+      onRefresh={refresh}
+    />
+  )
+}
+
+function AppContent({ dataset, dataError, dataSource, lastUpdated, onRefresh }: AppContentProps) {
   const [view, setView] = useState<View>('home')
-  const [competitionId, setCompetitionId] = useState(dataset.competitions.at(-1)!.id)
-  const snapshot = useMemo(() => getCompetitionSnapshot(dataset, competitionId), [competitionId])
-  const competitionSummaries = useMemo(() => getCompetitionSummaries(dataset), [])
-  const seasonLeaderboards = useMemo(() => getSeasonLeaderboards(dataset), [])
+  const [competitionId, setCompetitionId] = useState(
+    () => dataset.competitions.at(-1)?.id ?? '',
+  )
+  const snapshot = useMemo(() => getCompetitionSnapshot(dataset, competitionId), [dataset, competitionId])
+  const competitionSummaries = useMemo(() => getCompetitionSummaries(dataset), [dataset])
+  const seasonLeaderboards = useMemo(() => getSeasonLeaderboards(dataset), [dataset])
   const [teamId, setTeamId] = useState('all')
   const [gymnastId, setGymnastId] = useState('all')
   const [regionFilter, setRegionFilter] = useState(
@@ -117,11 +155,19 @@ function App() {
   const gymnastClub = dataset.teams.find((team) => team.id === selectedGymnast?.teamId)
   const clubColor = (clubId: string) =>
     dataset.teams.find((team) => team.id === clubId)?.color ?? '#77718a'
-  const mostImproved = getMostImproved(dataset)
+  const mostImproved = useMemo(() => getMostImproved(dataset), [dataset])
   const teamProgress = useMemo(
     () => (selectedTeam ? getTeamProgress(dataset, selectedTeam) : []),
-    [selectedTeam],
+    [dataset, selectedTeam],
   )
+
+  useEffect(() => {
+    if (!dataset.competitions.length) return
+    const latestId = dataset.competitions.at(-1)!.id
+    if (!dataset.competitions.some((item) => item.id === competitionId)) {
+      setCompetitionId(latestId)
+    }
+  }, [dataset, competitionId])
   const teamTotalNote = snapshot.teamsOfficial
     ? 'Official team totals from the competition score sheets.'
     : 'Team totals use the top three scores on each apparatus.'
@@ -794,7 +840,22 @@ function App() {
 
       <footer>
         <div className="brand"><span className="brand-mark"><TrendingUp size={18} /></span><span>Score<span>Story</span></span></div>
-        <p>Clearer competition results, one story at a time.</p><p className="sample-label">Individual and team results from competition score sheets</p>
+        <p>Clearer competition results, one story at a time.</p>
+        <p className="sample-label">
+          {dataSource === 'google-sheets'
+            ? `Live from Google Sheets${lastUpdated ? ` · updated ${lastUpdated.toLocaleTimeString()}` : ''}`
+            : 'Individual and team results from competition score sheets'}
+        </p>
+        {dataSource === 'google-sheets' && (
+          <button type="button" className="text-button data-refresh" onClick={onRefresh}>
+            Refresh scores
+          </button>
+        )}
+        {dataError && (
+          <p className="data-error" role="status">
+            Could not load Google Sheet ({dataError}). Showing saved copy.
+          </p>
+        )}
       </footer>
 
       {listOverlay && (

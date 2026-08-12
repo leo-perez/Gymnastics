@@ -1,0 +1,88 @@
+/** Sheet and club configuration — mirrors scripts/import_xlsx.py */
+
+export const INDIVIDUAL_SHEETS = [
+  { sheet: 'Counties Manukau Comp 1 ', id: 'cm-1', name: 'Counties Manukau Comp 1' },
+  { sheet: 'Counties Manukau Comp 2 (Waitak', id: 'cm-2', name: 'Counties Manukau Comp 2' },
+  { sheet: 'Tristar comp 1 (Waitakere)', id: 'tristar-1', name: 'Tri Star Comp 1' },
+  { sheet: 'Tristar comp 2', id: 'tristar-2', name: 'Tri Star Comp 2' },
+  { sheet: 'CSG Comp 1', id: 'csg-1', name: 'CSG Comp 1' },
+  { sheet: 'CSG Comp 2 (Waitakere)', id: 'csg-2', name: 'CSG Comp 2' },
+  { sheet: 'NHG Comp', id: 'nhg-1', name: 'NHG Comp' },
+] as const
+
+export const TEAM_SHEETS = [
+  { sheet: 'Teams Counties Manukau Comp 1', competitionId: 'cm-1' },
+  { sheet: 'Teams Counties Manukau Comp 2 (', competitionId: 'cm-2' },
+  { sheet: 'Teams Tristar Comp 1 (Waitakere', competitionId: 'tristar-1' },
+  { sheet: 'Teams Tristar Comp 2', competitionId: 'tristar-2' },
+  { sheet: 'Teams NHG Comp', competitionId: 'nhg-1' },
+] as const
+
+export const CLUB_ALIASES: Record<string, string> = {
+  nhg: 'North Harbour Gymnastics',
+  'nhg gymnastics': 'North Harbour Gymnastics',
+  'turn & gymnastic circle': 'Turn and Gymnastic Circle',
+  'turn & gymnastics circle': 'Turn and Gymnastic Circle',
+  'turn and gymnastic circle': 'Turn and Gymnastic Circle',
+  'howick gymnastic club': 'Howick Gymnastics',
+  'howick gymnastics club': 'Howick Gymnastics',
+  'howick gymnastics': 'Howick Gymnastics',
+  'eastern suburbs gymnastic club': 'Eastern Suburbs Gymnastics',
+  'eastern suburbs gymnastics club': 'Eastern Suburbs Gymnastics',
+  'eastern suburbs gym club': 'Eastern Suburbs Gymnastics',
+  'eastern suburbs gymnastics': 'Eastern Suburbs Gymnastics',
+  'mid-island gym sports': 'Mid-Island GymSports',
+  'mid-island gymsports': 'Mid-Island GymSports',
+  'impact gymnastics academy': 'Impact Gymsport Academy',
+  'argos gymnastics': 'ARGOS Gymnastics Club',
+  'argos gymnastics club': 'ARGOS Gymnastics Club',
+  'olympia gymnastic sports': 'Olympia Gymsports',
+  'olympia gymsports': 'Olympia Gymsports',
+  'te wero': 'Te Wero Gymnastics',
+  'te wero gymnastics': 'Te Wero Gymnastics',
+  'bay of islands gymnastics': 'Bay of Islands Gymnastics',
+  'bay of islands gymnastics club': 'Bay of Islands Gymnastics',
+  'christchurch school of gymnastics': 'Christchurch School of Gymnastics',
+  'whangarei academy of gymnastics': 'Whangarei Academy of Gymnastics',
+  'mt tauhara gymnastics club': 'Mt Tauhara Gymnastics Club',
+  'hamilton city gymnastics': 'Hamilton City Gymnastics',
+}
+
+export const CLUB_META: Record<string, [string, string, string]> = {
+  'Turn and Gymnastic Circle': ['TAG', '#5b50e6', 'Waikato'],
+  'Whangarei Academy of Gymnastics': ['WAO', '#ed6a5a', 'Northland'],
+  'Howick Gymnastics': ['HG', '#1a9c78', 'Howick'],
+  'North Harbour Gymnastics': ['NHG', '#d89b2b', 'North Shore'],
+  'Mid-Island GymSports': ['MIG', '#2f6fed', 'Bay of Plenty'],
+  'Counties Manukau Gymnastics': ['CMG', '#c44d8a', 'Manukau'],
+  'Gymnastics Waitara': ['GW', '#0f766e', 'Taranaki'],
+  'Waitakere Gymnastics': ['WG', '#b45309', 'Auckland'],
+  'Tri Star Gymnastics': ['TSG', '#7c3aed', 'Auckland'],
+  'Eastern Suburbs Gymnastics': ['ESG', '#be123c', 'Auckland'],
+  'Impact Gymsport Academy': ['IGA', '#0369a1', 'Bay of Plenty'],
+  'ARGOS Gymnastics Club': ['AGC', '#4d7c0f', 'Bay of Plenty'],
+  'Bay of Islands Gymnastics': ['BOI', '#9333ea', 'Northland'],
+  'Affinity Gymnastics Academy': ['AGA', '#c2410c', 'Canterbury'],
+  'Christchurch School of Gymnastics': ['CSG', '#0e7490', 'Christchurch'],
+  'Hutt Valley Gymnastics': ['HVG', '#a16207', 'Wellington'],
+  'Gymnastics Nelson': ['GN', '#db2777', 'Nelson'],
+  'Dunedin Gymnastics Academy': ['DGA', '#15803d', 'Otago'],
+  'Te Wero Gymnastics': ['TWG', '#4338ca', 'Waikato'],
+  'Olympia Gymsports': ['OG', '#ea580c', 'Canterbury'],
+  'Blenheim Gymnastics Club': ['BGC', '#0891b2', 'Marlborough'],
+  'Invercargill Gymnastics Club': ['IGC', '#65a30d', 'Southland'],
+  'Rimutaka Gymsports': ['RG', '#e11d48', 'Upper Hutt'],
+  'Mt Tauhara Gymnastics Club': ['MTG', '#2563eb', 'Waikato'],
+  'Hamilton City Gymnastics': ['HCG', '#7c2d12', 'Hamilton'],
+}
+
+export const EXTRA_COLORS = [
+  '#0f766e',
+  '#7c3aed',
+  '#b45309',
+  '#0369a1',
+  '#be123c',
+  '#4d7c0f',
+  '#9333ea',
+  '#c2410c',
+]
