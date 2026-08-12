@@ -163,8 +163,10 @@ def find_header_row(rows: list) -> int:
     for index, row in enumerate(rows[:10]):
         if not row:
             continue
-        cells = [str(cell).strip().lower() if cell is not None else "" for cell in row[:5]]
+        cells = [str(cell).strip().lower() if cell is not None else "" for cell in row[:6]]
         if "rank" in cells and "name" in cells:
+            return index
+        if "name" in cells and "club" in cells:
             return index
     return 3
 
