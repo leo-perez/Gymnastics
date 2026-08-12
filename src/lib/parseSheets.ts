@@ -55,8 +55,9 @@ const findHeaderRow = (rows: Row[]): number => {
   for (let index = 0; index < Math.min(rows.length, 10); index++) {
     const row = rows[index]
     if (!row?.length) continue
-    const cells = row.slice(0, 5).map((cell) => String(cell ?? '').trim().toLowerCase())
+    const cells = row.slice(0, 6).map((cell) => String(cell ?? '').trim().toLowerCase())
     if (cells.includes('rank') && cells.includes('name')) return index
+    if (cells.includes('name') && cells.includes('club')) return index
   }
   return 3
 }
