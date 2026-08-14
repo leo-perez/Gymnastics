@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Import gymnastics score sheets into src/data/competitionData.ts"""
+"""Import gymnastics score sheets into src/data/competitionData.ts.
+
+Downloads the Google Sheet (source of truth), caches it locally, then generates
+the TypeScript dataset.
+"""
 
 from __future__ import annotations
 
 import re
+import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -12,6 +17,10 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[1]
 XLSX = ROOT / "resources" / "Gymnastics data.xlsx"
 OUT = ROOT / "src" / "data" / "competitionData.ts"
+GOOGLE_SHEET_ID = "1L63Vp5RpIcu5GQTE-hK2OhSfKNLfmh_9MEOYmy4xi_k"
+GOOGLE_XLSX_URL = (
+    f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/export?format=xlsx"
+)
 
 APPARATUS = ("vault", "bars", "beam", "floor")
 
@@ -51,6 +60,11 @@ INDIVIDUAL_SHEETS = [
         "id": "nhg-1",
         "name": "NHG Comp",
     },
+    {
+        "sheet": "Central Comp",
+        "id": "central-1",
+        "name": "Central Comp",
+    },
 ]
 
 TEAM_SHEETS = [
@@ -59,6 +73,7 @@ TEAM_SHEETS = [
     {"sheet": "Teams Tristar Comp 1 (Waitakere", "competitionId": "tristar-1"},
     {"sheet": "Teams Tristar Comp 2", "competitionId": "tristar-2"},
     {"sheet": "Teams NHG Comp", "competitionId": "nhg-1"},
+    {"sheet": "Teams Central Comp", "competitionId": "central-1"},
 ]
 
 CLUB_ALIASES = {
@@ -81,8 +96,18 @@ CLUB_ALIASES = {
     "argos gymnastics club": "ARGOS Gymnastics Club",
     "olympia gymnastic sports": "Olympia Gymsports",
     "olympia gymsports": "Olympia Gymsports",
+    "olympia gymnastics": "Olympia Gymsports",
     "te wero": "Te Wero Gymnastics",
     "te wero gymnastics": "Te Wero Gymnastics",
+    "tristar gymnastics": "Tri Star Gymnastics",
+    "tri star gymnastics": "Tri Star Gymnastics",
+    "rimutaka gymnastics": "Rimutaka Gymsports",
+    "nelson gymnastics": "Gymnastics Nelson",
+    "blenheim gymnastics": "Blenheim Gymnastics Club",
+    "impact gymnastics": "Impact Gymsport Academy",
+    "omni gymnastics": "Omni Gymnastics Centre",
+    "manawatu gymnastics incorporated": "Manawatu Gymnastics",
+    "manawatu gymnastics": "Manawatu Gymnastics",
     "bay of islands gymnastics": "Bay of Islands Gymnastics",
     "bay of islands gymnastics club": "Bay of Islands Gymnastics",
     "christchurch school of gymnastics": "Christchurch School of Gymnastics",
@@ -117,6 +142,16 @@ CLUB_META = {
     "Rimutaka Gymsports": ("RG", "#e11d48", "Upper Hutt"),
     "Mt Tauhara Gymnastics Club": ("MTG", "#2563eb", "Waikato"),
     "Hamilton City Gymnastics": ("HCG", "#7c2d12", "Hamilton"),
+    "Twisters Gymnastics": ("TW", "#c026d3", "Wellington"),
+    "Whanganui Boys and Girls Gym Club": ("WBG", "#b45309", "Whanganui"),
+    "Levin Gymnastics": ("LG", "#0d9488", "Levin"),
+    "Omni Gymnastics Centre": ("OGC", "#be123c", "Hawke's Bay"),
+    "Kapiti Gymnastics": ("KG", "#1d4ed8", "Kapiti"),
+    "Manawatu Gymnastics": ("MG", "#4d7c0f", "Manawatū"),
+}
+
+CITY_FIXES = {
+    "lower hut": "Lower Hutt",
 }
 
 EXTRA_COLORS = [
@@ -152,6 +187,7 @@ def format_location(address: str | None) -> str:
     parts = [part.strip() for part in str(address).split(",") if part.strip()]
     if len(parts) >= 2:
         city = re.sub(r"\s+\d+\s*$", "", parts[-1]).strip()
+        city = CITY_FIXES.get(city.lower(), city)
         neighborhood = parts[-2]
         if city:
             return f"{neighborhood}, {city}"
@@ -243,7 +279,26 @@ def ts_string(value: str) -> str:
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
+def download_google_sheet() -> None:
+    XLSX.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading Google Sheet {GOOGLE_SHEET_ID}…")
+    request = urllib.request.Request(
+        GOOGLE_XLSX_URL,
+        headers={"User-Agent": "Mozilla/5.0 (Gymnastics importer)"},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        payload = response.read()
+    if len(payload) < 1000 or not payload.startswith(b"PK"):
+        raise RuntimeError(
+            "Google Sheet export did not return an xlsx file. "
+            "Check that the sheet is shared as 'Anyone with the link'."
+        )
+    XLSX.write_bytes(payload)
+    print(f"Saved {XLSX.relative_to(ROOT)} ({len(payload)} bytes)")
+
+
 def main() -> None:
+    download_google_sheet()
     wb = load_workbook(XLSX, data_only=True)
     sheet_by_prefix = {name: name for name in wb.sheetnames}
 
@@ -416,7 +471,7 @@ def main() -> None:
     lines.append("import type { CompetitionDataset } from './types'")
     lines.append("")
     lines.append(
-        "/** Imported from resources/Gymnastics data.xlsx — individual + official team results */"
+        "/** Imported from the Gymnastics Google Sheet — individual + official team results */"
     )
     lines.append("export const dataset: CompetitionDataset = {")
 
