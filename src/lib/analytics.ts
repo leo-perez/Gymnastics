@@ -557,6 +557,76 @@ export const getSeasonLeaderboards = (dataset: CompetitionDataset) => {
   return { teams, gymnasts, regions }
 }
 
+export interface SeasonApparatusStanding {
+  id: string
+  name: string
+  teamId: string
+  teamName: string
+  score: number
+  competitionId: string
+  competitionName: string
+  rank: number
+}
+
+const APPARATUS_LEADER_COUNT = 5
+
+export const getSeasonApparatusLeaders = (
+  dataset: CompetitionDataset,
+  topN = APPARATUS_LEADER_COUNT,
+): Record<Apparatus, SeasonApparatusStanding[]> => {
+  const clubById = new Map(dataset.teams.map((team) => [team.id, team]))
+  const gymnastById = new Map(dataset.gymnasts.map((gymnast) => [gymnast.id, gymnast]))
+  const competitionById = new Map(
+    dataset.competitions.map((competition) => [competition.id, competition]),
+  )
+  const competitionDate = (id: string) => competitionById.get(id)?.date ?? ''
+
+  const bestByApparatus = Object.fromEntries(
+    APPARATUS.map((item) => [item, new Map<string, { score: number; competitionId: string }>()]),
+  ) as Record<Apparatus, Map<string, { score: number; competitionId: string }>>
+
+  for (const score of dataset.scores) {
+    const current = bestByApparatus[score.apparatus].get(score.gymnastId)
+    if (
+      !current ||
+      score.score > current.score ||
+      (
+        score.score === current.score
+        && competitionDate(score.competitionId) > competitionDate(current.competitionId)
+      )
+    ) {
+      bestByApparatus[score.apparatus].set(score.gymnastId, {
+        score: score.score,
+        competitionId: score.competitionId,
+      })
+    }
+  }
+
+  return Object.fromEntries(
+    APPARATUS.map((item) => {
+      const standings = [...bestByApparatus[item].entries()]
+        .map(([gymnastId, best]) => {
+          const gymnast = gymnastById.get(gymnastId)
+          const club = gymnast ? clubById.get(gymnast.teamId) : undefined
+          const competition = competitionById.get(best.competitionId)
+          return {
+            id: gymnastId,
+            name: gymnast?.name ?? 'Unknown',
+            teamId: gymnast?.teamId ?? '',
+            teamName: club?.name ?? '',
+            score: round(best.score),
+            competitionId: best.competitionId,
+            competitionName: competition?.name ?? '',
+          }
+        })
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+        .slice(0, topN)
+        .map((entry, index) => ({ ...entry, rank: index + 1 }))
+      return [item, standings]
+    }),
+  ) as Record<Apparatus, SeasonApparatusStanding[]>
+}
+
 export const getGymnastProgress = (
   dataset: CompetitionDataset,
   gymnast: Gymnast,

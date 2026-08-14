@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, Award, BarChart3, CalendarDays, ChevronDown, ChevronLeft, CircleHelp,
-  MapPin, Medal, Sparkles, TrendingUp, Trophy, UserRound, Users, X,
+  ChevronsUp, Equal, LayoutGrid, MapPin, Medal, Minus, Sparkles, TrendingUp,
+  Trophy, UserRound, Users, X,
 } from 'lucide-react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, PolarAngleAxis, PolarGrid,
@@ -12,11 +13,13 @@ import { dataset } from './data/competitionData'
 import { APPARATUS, APPARATUS_LABELS, type Apparatus } from './data/types'
 import {
   getCompetitionSnapshot, getCompetitionSummaries, getGymnastProgress,
-  getMostImproved, getSeasonLeaderboards, getTeamProgress,
-  type SeasonGymnastStanding,
+  getMostImproved, getSeasonApparatusLeaders, getSeasonLeaderboards,
+  getTeamProgress, type SeasonGymnastStanding,
 } from './lib/analytics'
-
-type View = 'home' | 'overview' | 'teams' | 'gymnasts'
+import {
+  isAppLocation, locationToPath, pathToLocation, sameLocation,
+  type AppLocation, type ListOverlay, type View,
+} from './lib/routes'
 
 const VIEW_LABELS: Record<View, string> = {
   home: 'competitions',
@@ -30,7 +33,12 @@ const ALL_REGIONS = 'all'
 const MOBILE_BREAKPOINT = 900
 const MOBILE_LEADERBOARD_PREVIEW = 5
 
-type ListOverlay = 'teams' | 'gymnasts' | null
+const APPARATUS_ICONS = {
+  vault: ChevronsUp,
+  bars: Equal,
+  beam: Minus,
+  floor: LayoutGrid,
+} as const
 
 const rankWithinRegion = (gymnasts: SeasonGymnastStanding[]) =>
   [...gymnasts]
@@ -54,20 +62,44 @@ const useIsMobile = (breakpoint = MOBILE_BREAKPOINT) => {
 }
 
 function App() {
-  const [view, setView] = useState<View>('home')
-  const [competitionId, setCompetitionId] = useState(dataset.competitions.at(-1)!.id)
+  const defaultCompetitionId = dataset.competitions.at(-1)!.id
+  const knownCompetitionIds = useMemo(
+    () => new Set(dataset.competitions.map((item) => item.id)),
+    [],
+  )
+  const initialLocation = useMemo(
+    () => pathToLocation(
+      window.location.pathname,
+      window.location.search,
+      defaultCompetitionId,
+      knownCompetitionIds,
+    ),
+    [defaultCompetitionId, knownCompetitionIds],
+  )
+  const [view, setView] = useState<View>(initialLocation.view)
+  const [competitionId, setCompetitionId] = useState(initialLocation.competitionId)
   const snapshot = useMemo(() => getCompetitionSnapshot(dataset, competitionId), [competitionId])
   const competitionSummaries = useMemo(() => getCompetitionSummaries(dataset), [])
   const seasonLeaderboards = useMemo(() => getSeasonLeaderboards(dataset), [])
-  const [teamId, setTeamId] = useState('all')
-  const [gymnastId, setGymnastId] = useState('all')
+  const apparatusLeaders = useMemo(() => getSeasonApparatusLeaders(dataset), [])
+  const [teamId, setTeamId] = useState(initialLocation.teamId)
+  const [gymnastId, setGymnastId] = useState(initialLocation.gymnastId)
   const [regionFilter, setRegionFilter] = useState(
     seasonLeaderboards.regions.includes(DEFAULT_REGION) ? DEFAULT_REGION : ALL_REGIONS,
   )
   const [progressApparatus, setProgressApparatus] = useState<'all' | Apparatus>('all')
-  const [listOverlay, setListOverlay] = useState<ListOverlay>(null)
+  const [listOverlay, setListOverlay] = useState<ListOverlay>(initialLocation.listOverlay)
   const [compPickerOpen, setCompPickerOpen] = useState(false)
   const compPickerRef = useRef<HTMLDivElement>(null)
+  const currentLocation: AppLocation = {
+    view,
+    competitionId,
+    teamId,
+    gymnastId,
+    listOverlay,
+  }
+  const currentLocationRef = useRef(currentLocation)
+  currentLocationRef.current = currentLocation
   const isMobile = useIsMobile()
   const gymnastLeaderboardGroups = useMemo(() => {
     const filtered =
@@ -145,34 +177,93 @@ function App() {
     ? snapshot.gymnasts[0].total - snapshot.gymnasts[1].total
     : 0
 
+  const applyLocation = (next: AppLocation) => {
+    setView(next.view)
+    setCompetitionId(next.competitionId)
+    setTeamId(next.teamId)
+    setGymnastId(next.gymnastId)
+    setListOverlay(next.listOverlay)
+  }
+
+  const go = (patch: Partial<AppLocation>, options?: { replace?: boolean; scroll?: boolean }) => {
+    const previous = currentLocationRef.current
+    const next = { ...previous, ...patch }
+    const overlayOnly =
+      next.view === previous.view
+      && next.competitionId === previous.competitionId
+      && next.teamId === previous.teamId
+      && next.gymnastId === previous.gymnastId
+      && next.listOverlay !== previous.listOverlay
+
+    if (sameLocation(next, previous) && !options?.replace) return
+
+    applyLocation(next)
+    const url = locationToPath(next)
+    if (options?.replace) window.history.replaceState(next, '', url)
+    else window.history.pushState(next, '', url)
+
+    if (options?.scroll !== false && !overlayOnly) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+  const goRef = useRef(go)
+  goRef.current = go
+
   const openCompetition = (id: string) => {
-    setCompetitionId(id)
-    setTeamId('all')
-    setGymnastId('all')
-    setView('overview')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    go({
+      competitionId: id,
+      teamId: 'all',
+      gymnastId: 'all',
+      view: 'overview',
+      listOverlay: null,
+    })
   }
   const openTeam = (id: string, fromCompetitionId = competitionId) => {
-    setListOverlay(null)
-    setCompetitionId(fromCompetitionId)
-    setTeamId(id)
-    setView('teams')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    go({
+      listOverlay: null,
+      competitionId: fromCompetitionId,
+      teamId: id,
+      view: 'teams',
+    })
   }
   const openGymnast = (id: string, fromCompetitionId = competitionId) => {
-    setListOverlay(null)
-    setCompetitionId(fromCompetitionId)
-    setGymnastId(id)
-    setView('gymnasts')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    go({
+      listOverlay: null,
+      competitionId: fromCompetitionId,
+      gymnastId: id,
+      view: 'gymnasts',
+    })
   }
+
+  useEffect(() => {
+    window.history.scrollRestoration = 'manual'
+    window.history.replaceState(
+      currentLocationRef.current,
+      '',
+      locationToPath(currentLocationRef.current),
+    )
+    const onPopState = (event: PopStateEvent) => {
+      const next = isAppLocation(event.state)
+        ? event.state
+        : pathToLocation(
+          window.location.pathname,
+          window.location.search,
+          defaultCompetitionId,
+          knownCompetitionIds,
+        )
+      applyLocation(next)
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [defaultCompetitionId, knownCompetitionIds])
 
   useEffect(() => {
     if (!listOverlay) return
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setListOverlay(null)
+      if (event.key === 'Escape') goRef.current({ listOverlay: null }, { replace: true })
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
@@ -206,7 +297,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <button className="brand" onClick={() => setView('home')} aria-label="Go to competitions">
+        <button className="brand" onClick={() => go({ view: 'home', listOverlay: null })} aria-label="Go to competitions">
           <span className="brand-mark"><TrendingUp size={20} /></span>
           <span>Score<span>Story</span></span>
         </button>
@@ -218,7 +309,7 @@ function App() {
             <button
               type="button"
               className="text-button back-to-competitions"
-              onClick={() => setView('home')}
+              onClick={() => go({ view: 'home', listOverlay: null })}
             >
               <ChevronLeft size={15} /> All Competitions
             </button>
@@ -244,9 +335,11 @@ function App() {
                           aria-selected={item.id === competitionId}
                           className={item.id === competitionId ? 'active' : ''}
                           onClick={() => {
-                            setCompetitionId(item.id)
-                            setTeamId('all')
-                            setGymnastId('all')
+                            go({
+                              competitionId: item.id,
+                              teamId: 'all',
+                              gymnastId: 'all',
+                            })
                             setCompPickerOpen(false)
                           }}
                         >
@@ -270,9 +363,9 @@ function App() {
                 <button
                   className={view === item ? 'active' : ''}
                   onClick={() => {
-                    if (item === 'teams') setTeamId('all')
-                    if (item === 'gymnasts') setGymnastId('all')
-                    setView(item)
+                    if (item === 'teams') go({ view: 'teams', teamId: 'all' })
+                    else if (item === 'gymnasts') go({ view: 'gymnasts', gymnastId: 'all' })
+                    else go({ view: item })
                   }}
                   key={item}
                 >
@@ -326,8 +419,8 @@ function App() {
                       <p className="eyebrow">{item.category} · {item.level}</p>
                       <h2>{item.name}</h2>
                       <div className="competition-card-meta">
-                        <span><CalendarDays size={14} />{new Date(item.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                        <span><MapPin size={14} />{item.location}</span>
+                        <span><CalendarDays size={13} />{new Date(item.date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span><MapPin size={13} />{item.location}</span>
                       </div>
                     </div>
                     <div className="competition-card-stats">
@@ -335,13 +428,13 @@ function App() {
                       <div><strong>{teamCount}</strong><span>teams</span></div>
                       {topGymnast && (
                         <div className="competition-card-leader">
-                          <span>All-around lead</span>
+                          <span>Lead</span>
                           <strong>{topGymnast.name}</strong>
                           <small>{topGymnast.total.toFixed(3)}</small>
                         </div>
                       )}
                     </div>
-                    <span className="competition-card-action">Open <ArrowRight size={16} /></span>
+                    <span className="competition-card-action" aria-hidden="true"><ArrowRight size={16} /></span>
                   </button>
                 ))}
               </div>
@@ -352,7 +445,7 @@ function App() {
                 <div className="panel">
                   <div className="panel-heading">
                     <div><p className="kicker">Team standings</p><h2>Leaderboard</h2></div>
-                    <button className="text-button" onClick={() => { setTeamId('all'); setView('teams') }}>
+                    <button className="text-button" onClick={() => go({ view: 'teams', teamId: 'all' })}>
                       Explore teams <ArrowRight />
                     </button>
                   </div>
@@ -367,7 +460,7 @@ function App() {
                     ))}
                   </div>
                   {isMobile && seasonLeaderboards.teams.length > MOBILE_LEADERBOARD_PREVIEW && (
-                    <button className="view-all-button" onClick={() => setListOverlay('teams')}>
+                    <button className="view-all-button" onClick={() => go({ listOverlay: 'teams' })}>
                       View all <ArrowRight size={16} />
                     </button>
                   )}
@@ -375,7 +468,7 @@ function App() {
                 <div className="panel">
                   <div className="panel-heading">
                     <div><p className="kicker">Gymnast</p><h2>Leaderboard</h2></div>
-                    <button className="text-button" onClick={() => { setGymnastId('all'); setView('gymnasts') }}>
+                    <button className="text-button" onClick={() => go({ view: 'gymnasts', gymnastId: 'all' })}>
                       Explore gymnasts <ArrowRight />
                     </button>
                   </div>
@@ -430,11 +523,72 @@ function App() {
                     )}
                   </div>
                   {isMobile && gymnastStandingCount > MOBILE_LEADERBOARD_PREVIEW && (
-                    <button className="view-all-button" onClick={() => setListOverlay('gymnasts')}>
+                    <button className="view-all-button" onClick={() => go({ listOverlay: 'gymnasts' })}>
                       View all <ArrowRight size={16} />
                     </button>
                   )}
                 </div>
+              </div>
+            </section>
+
+            <section className="section-block home-apparatus" id="apparatus-leaders">
+              <div className="section-heading">
+                <div>
+                  <p className="kicker">Best on each event</p>
+                  <h2>Apparatus leaders</h2>
+                </div>
+                <span className="method-link">
+                  <CircleHelp size={15} /> Ranked by each gymnast’s best score this season
+                </span>
+              </div>
+              <div className="apparatus-leader-grid">
+                {APPARATUS.map((item) => {
+                  const standings = apparatusLeaders[item]
+                  const leader = standings[0]
+                  const Icon = APPARATUS_ICONS[item]
+                  if (!leader) return null
+                  return (
+                    <article className={`apparatus-leader-card ${item}`} key={item}>
+                      <button
+                        className="apparatus-leader-hero"
+                        onClick={() => openGymnast(leader.id, leader.competitionId)}
+                      >
+                        <div className="apparatus-leader-top">
+                          <span className="apparatus-leader-icon"><Icon size={18} /></span>
+                          <span className="eyebrow">{APPARATUS_LABELS[item]}</span>
+                          <ArrowRight size={16} />
+                        </div>
+                        <div className="apparatus-leader-body">
+                          <div>
+                            <p className="place">1st place</p>
+                            <h3>{leader.name}</h3>
+                            <p>{leader.teamName} · {leader.competitionName}</p>
+                          </div>
+                          <strong className="big-score">{leader.score.toFixed(3)}</strong>
+                        </div>
+                      </button>
+                      <div className="podium-list">
+                        {standings.slice(1).map((gymnast) => (
+                          <button
+                            className="podium-row"
+                            onClick={() => openGymnast(gymnast.id, gymnast.competitionId)}
+                            key={gymnast.id}
+                          >
+                            <span className={`rank rank-${gymnast.rank}`}>
+                              {gymnast.rank <= 3 ? <Medal size={15} /> : gymnast.rank}
+                            </span>
+                            <span className="team-dot" style={{ background: clubColor(gymnast.teamId) }} />
+                            <span className="leader-name">
+                              <strong>{gymnast.name}</strong>
+                              <small>{gymnast.teamName} · {gymnast.competitionName}</small>
+                            </span>
+                            <span className="leader-score">{gymnast.score.toFixed(3)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </article>
+                  )
+                })}
               </div>
             </section>
           </>
@@ -495,7 +649,7 @@ function App() {
 
             <section className="split-section section-block">
               <div className="panel">
-                <div className="panel-heading"><div><p className="kicker">Team standings</p><h2>Leaderboard</h2></div><button className="text-button" onClick={() => { setTeamId('all'); setView('teams') }}>Explore teams <ArrowRight /></button></div>
+                <div className="panel-heading"><div><p className="kicker">Team standings</p><h2>Leaderboard</h2></div><button className="text-button" onClick={() => go({ view: 'teams', teamId: 'all' })}>Explore teams <ArrowRight /></button></div>
                 <div className="leaderboard">
                   {snapshot.teams.map((team) => (
                     <button className="leader-row" onClick={() => openTeam(team.id)} key={team.id}>
@@ -536,11 +690,11 @@ function App() {
         {view === 'teams' && (
           <section className="detail-page">
             <div className="selector-row">
-              <button className={showAllTeams ? 'selected' : ''} onClick={() => setTeamId('all')}>
+              <button className={showAllTeams ? 'selected' : ''} onClick={() => go({ teamId: 'all' })}>
                 <span style={{ background: 'linear-gradient(135deg, #5b50e6, #ed6a5a)' }} />All teams<small>{snapshot.teams.length}</small>
               </button>
               {snapshot.teams.map((team) => (
-                <button className={!showAllTeams && selectedTeam.id === team.id ? 'selected' : ''} onClick={() => setTeamId(team.id)} key={team.id}>
+                <button className={!showAllTeams && selectedTeam.id === team.id ? 'selected' : ''} onClick={() => go({ teamId: team.id })} key={team.id}>
                   <span style={{ background: team.color }} />{team.name}<small>#{team.rank}</small>
                 </button>
               ))}
@@ -557,7 +711,7 @@ function App() {
                   <div className="panel-heading"><div><p className="kicker">Standings</p><h2>Every team</h2></div></div>
                   <div className="leaderboard">
                     {snapshot.teams.map((team) => (
-                      <button className="leader-row" onClick={() => setTeamId(team.id)} key={team.id}>
+                      <button className="leader-row" onClick={() => go({ teamId: team.id })} key={team.id}>
                         <span className={`rank rank-${team.rank}`}>{team.rank <= 3 ? <Medal size={17} /> : team.rank}</span>
                         <span className="team-dot" style={{ background: team.color }} />
                         <span className="leader-name"><strong>{team.name}</strong><small>Best on {APPARATUS_LABELS[team.strongest]}</small></span>
@@ -641,7 +795,7 @@ function App() {
           <section className="detail-page">
             <label className="gymnast-picker">
               <Users size={18} /><span>Choose a gymnast</span>
-              <select value={showAllGymnasts ? 'all' : selectedGymnast.id} onChange={(event) => setGymnastId(event.target.value)}>
+              <select value={showAllGymnasts ? 'all' : selectedGymnast.id} onChange={(event) => go({ gymnastId: event.target.value })}>
                 <option value="all">All gymnasts</option>
                 {snapshot.gymnasts.map((gymnast) => <option value={gymnast.id} key={gymnast.id}>{gymnast.name} — #{gymnast.rank}</option>)}
               </select><ChevronDown size={16} />
@@ -692,7 +846,7 @@ function App() {
                     <div className="panel-heading"><div><p className="kicker">Standings</p><h2>Every gymnast</h2></div></div>
                     <div className="leaderboard">
                       {snapshot.gymnasts.map((gymnast) => (
-                          <button className="leader-row" onClick={() => setGymnastId(gymnast.id)} key={gymnast.id}>
+                          <button className="leader-row" onClick={() => go({ gymnastId: gymnast.id })} key={gymnast.id}>
                             <span className={`rank rank-${gymnast.rank}`}>{gymnast.rank <= 3 ? <Medal size={17} /> : gymnast.rank}</span>
                             <span className="team-dot" style={{ background: clubColor(gymnast.teamId) }} />
                             <span className="leader-name"><strong>{gymnast.name}</strong><small>{gymnast.teamName}</small></span>
@@ -811,7 +965,7 @@ function App() {
             </div>
             <button
               className="list-overlay-close"
-              onClick={() => setListOverlay(null)}
+              onClick={() => go({ listOverlay: null }, { replace: true })}
               aria-label="Close leaderboard"
             >
               <X size={20} />
