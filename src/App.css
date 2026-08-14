@@ -199,8 +199,9 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
   border-top: 1px solid var(--line);
 }
 .champion-stack .podium-row {
-  border-radius: 0; padding: 12px 14px;
+  border-radius: 0; padding: 12px 20px;
 }
+.champion-stack .podium-row:last-child { padding-bottom: 16px; }
 .champion-stack .podium-row + .podium-row { border-top: 1px solid var(--line); }
 .champion-card { text-align: left; padding: 22px; border-radius: 19px; cursor: pointer; transition: transform .2s, box-shadow .2s; }
 .champion-card:hover { transform: translateY(-3px); box-shadow: 0 18px 45px rgba(37,36,31,.1); }
@@ -216,14 +217,15 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
 .big-score { font: 800 32px 'Manrope'; letter-spacing: -.06em; }
 .podium-list { display: grid; gap: 4px; padding: 6px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
 .podium-row {
-  width: 100%; display: grid; grid-template-columns: 28px 8px 1fr auto; gap: 10px;
+  width: 100%; min-width: 0; max-width: 100%; overflow: hidden;
+  display: grid; grid-template-columns: 28px 8px minmax(0, 1fr) auto; gap: 10px;
   align-items: center; text-align: left; background: none; border-radius: 11px;
   padding: 10px 8px; cursor: pointer;
 }
 .podium-row:hover { background: #f3f1eb; }
 .podium-row .leader-name strong { font-size: 13px; }
 .podium-row .leader-name small { color: var(--muted); font-size: 10px; margin-top: 2px; }
-.podium-row .leader-score { font: 800 15px 'Manrope'; }
+.podium-row .leader-score { font: 800 15px 'Manrope'; white-space: nowrap; }
 
 /* ---- Section blocks / insights ------------------------------------------ */
 .section-block { padding: 75px 20px 0; }
@@ -272,14 +274,14 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
   text-transform: uppercase; color: var(--muted);
 }
 .leaderboard-empty { margin: 18px 8px 8px; color: var(--muted); font-size: 13px; }
-.leader-row { width: 100%; display: grid; grid-template-columns: 30px 9px 1fr auto 18px; gap: 11px; align-items: center; text-align: left; background: none; border-radius: 11px; padding: 11px 8px; cursor: pointer; }
+.leader-row { width: 100%; min-width: 0; max-width: 100%; display: grid; grid-template-columns: 30px 9px minmax(0, 1fr) auto 18px; gap: 11px; align-items: center; text-align: left; background: none; border-radius: 11px; padding: 11px 8px; cursor: pointer; }
 .leader-row:hover { background: #f3f1eb; }
 .rank { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 9px; background: #eeece5; font-size: 12px; font-weight: 800; }
 .rank-1 { color: #a66f00; background: #fff0c5; } .rank-2 { color: #6a6d72; background: #eceef1; } .rank-3 { color: #9b5e37; background: #f8e4d8; }
 .team-dot { width: 8px; height: 8px; border-radius: 50%; }
 .leader-name { display: flex; flex-direction: column; min-width: 0; }
 .leader-name strong { font-size: 13px; } .leader-name small { color: var(--muted); font-size: 10px; margin-top: 3px; }
-.leader-score { font: 800 16px 'Manrope'; }
+.leader-score { font: 800 16px 'Manrope'; white-space: nowrap; }
 .apparatus-highs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .apparatus-highs button { position: relative; overflow: hidden; min-height: 110px; padding: 16px; text-align: left; background: #f3f1eb; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; }
 .apparatus-highs button:hover { background: #ece9e1; }
@@ -294,7 +296,7 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
   display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 24px;
 }
 .apparatus-leader-card {
-  display: grid; border-radius: 19px; overflow: hidden;
+  display: grid; min-width: 0; border-radius: 19px; overflow: hidden;
   border: 1px solid var(--line); background: var(--card);
 }
 .apparatus-leader-card.vault { --tone: var(--violet); --hero: #dedbff; --hero-hover: #d0ccf7; }
@@ -302,7 +304,7 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
 .apparatus-leader-card.beam { --tone: var(--teal); --hero: #d6efe8; --hero-hover: #c5e8dd; }
 .apparatus-leader-card.floor { --tone: var(--gold); --hero: #ffeec4; --hero-hover: #ffe4a8; }
 .apparatus-leader-hero {
-  width: 100%; text-align: left; padding: 20px 20px 18px;
+  width: 100%; min-width: 0; max-width: 100%; text-align: left; padding: 20px 20px 18px;
   background: var(--hero); cursor: pointer;
   transition: background .2s;
 }
@@ -337,9 +339,11 @@ h1 em { color: var(--violet); font-family: Georgia, serif; font-weight: 400; }
   border-top: 1px solid var(--line);
 }
 .apparatus-leader-card .podium-row {
-  border-radius: 0; padding: 12px 14px;
+  border-radius: 0; padding: 12px 20px;
 }
+.apparatus-leader-card .podium-row:last-child { padding-bottom: 16px; }
 .apparatus-leader-card .podium-row + .podium-row { border-top: 1px solid var(--line); }
+.apparatus-leader-card .leader-name strong,
 .apparatus-leader-card .leader-name small {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -451,6 +455,8 @@ footer p { margin: 0; } .sample-label { padding: 6px 9px; background: #ece9e1; b
   .competition-card-action { grid-column: auto; grid-row: auto; }
   .apparatus-leader-grid { grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 28px; }
   .apparatus-leader-hero { padding: 22px 22px 20px; }
+  .apparatus-leader-card .podium-row { padding: 12px 22px; }
+  .apparatus-leader-card .podium-row:last-child { padding-bottom: 18px; }
   .apparatus-leader-body h3 { font-size: 22px; }
   .apparatus-leader-body .big-score { font-size: 32px; }
   .selector-row { display: flex; justify-content: center; flex-wrap: wrap; }
@@ -499,6 +505,8 @@ footer p { margin: 0; } .sample-label { padding: 6px 9px; background: #ece9e1; b
   .home-apparatus { padding-bottom: 105px; }
   .apparatus-leader-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .apparatus-leader-hero { padding: 20px 18px 18px; }
+  .apparatus-leader-card .podium-row { padding: 12px 18px; }
+  .apparatus-leader-card .podium-row:last-child { padding-bottom: 16px; }
   .apparatus-leader-body { flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 18px; }
   .apparatus-leader-body h3 { font-size: 18px; }
   .apparatus-leader-body .big-score { font-size: 30px; }
