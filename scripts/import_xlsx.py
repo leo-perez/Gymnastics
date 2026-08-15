@@ -65,6 +65,16 @@ INDIVIDUAL_SHEETS = [
         "id": "central-1",
         "name": "Central Comp",
     },
+    {
+        "sheet": "Auckland Manukau Champs 1",
+        "id": "amc-1",
+        "name": "Auckland Manukau Champs 1",
+    },
+    {
+        "sheet": "Auckland Manukau Champs 2 (Wait",
+        "id": "amc-2",
+        "name": "Auckland Manukau Champs 2",
+    },
 ]
 
 TEAM_SHEETS = [
@@ -74,6 +84,8 @@ TEAM_SHEETS = [
     {"sheet": "Teams Tristar Comp 2", "competitionId": "tristar-2"},
     {"sheet": "Teams NHG Comp", "competitionId": "nhg-1"},
     {"sheet": "Teams Central Comp", "competitionId": "central-1"},
+    {"sheet": "Teams Auckland Manukau Champs C", "competitionId": "amc-1"},
+    {"sheet": "Sheet13", "competitionId": "amc-2"},
 ]
 
 CLUB_ALIASES = {
